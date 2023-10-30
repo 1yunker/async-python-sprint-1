@@ -3,3 +3,8 @@ creds.ini
 .idea/
 __pycache__/
 *.pyc
+/venv
+
+# temp files
+/results
+forecasting.log
