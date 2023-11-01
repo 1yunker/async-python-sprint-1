@@ -23,15 +23,16 @@ class DataFetchingTask:
     """
     Получение данных через API и их запись в JSON-файл.
     """
-    def __init__(self, queue: Queue):
+    def __init__(self, temp_dir: str, queue: Queue):
         self._queue = queue
+        self._temp_dir = temp_dir
 
     def get_data_and_put_to_queue(self, city_name: str) -> None:
         try:
             url_with_data = get_url_by_city_name(city_name)
             resp = YandexWeatherAPI.get_forecasting(url_with_data)
             if resp:
-                file_with_path = 'results/{}_response.json'.format(city_name)
+                file_with_path = f'{self._temp_dir}/{city_name}_response.json'
                 with open(file_with_path, 'w') as file:
                     json.dump(resp, file, indent=4)
                     logger.info(
@@ -52,8 +53,9 @@ class DataCalculationTask:
     Вычисление погодных параметров и их запись в JSON-файл.
     """
 
-    def __init__(self, queue: Queue):
+    def __init__(self, temp_dir: str, queue: Queue):
         self._queue = queue
+        self._temp_dir = temp_dir
         self.cities = []
         self.dates = []
 
@@ -64,12 +66,12 @@ class DataCalculationTask:
                 break
 
             data = load_data(
-                input_path='results/{}_response.json'.format(city_name)
+                input_path=f'{self._temp_dir}/{city_name}_response.json'
             )
             data = analyze_json(data)
             dump_data(
                 data,
-                output_path='results/{}_output.json'.format(city_name)
+                output_path=f'{self._temp_dir}/{city_name}_output.json'
             )
 
             logger.info(f'Информация о городе {city_name} успешно обработана.')
@@ -88,7 +90,8 @@ class DataAggregationTask:
     """
     Объединение вычисленных данных и их запись в JSON-файл..
     """
-    def __init__(self, dates: list):
+    def __init__(self, temp_dir: str, dates: list):
+        self._temp_dir = temp_dir
         self.dates = dates
 
     def get_dataframe(self, city_name: str) -> DataFrame:
@@ -100,7 +103,7 @@ class DataAggregationTask:
         columns.append('Avg')
         df = DataFrame(columns=columns)
 
-        with open('results/{}_output.json'.format(city_name), 'r') as file:
+        with open(f'{self._temp_dir}/{city_name}_output.json', 'r') as file:
             data = json.load(file).get('days')
 
             lst_temps = []
@@ -147,6 +150,8 @@ class DataAnalyzingTask:
         data_with_max_temp_avg = list(
             filter(lambda d: d['Avg'] == max_temp_avg, data)
         )
+
+        # Если городов с max_temp_avg больше одного
         if len(data_with_max_temp_avg) > 1:
             cities_with_max_temp = []
             for ev in data_with_max_temp_avg:
@@ -160,10 +165,12 @@ class DataAnalyzingTask:
             data_with_max_relevant_cond_hours = list(
                 filter(lambda d: d['Avg'] == max_relevant_cond_hours, data)
             )
+
+            # Если городов с max_relevant_cond_hours больше одного
             if len(data_with_max_relevant_cond_hours) > 1:
                 cities_with_max_relevant_cond_hours = []
-                for i in data_with_max_relevant_cond_hours:
-                    cities_with_max_relevant_cond_hours.append(i['City'])
+                for ev in data_with_max_relevant_cond_hours:
+                    cities_with_max_relevant_cond_hours.append(ev['City'])
                 cities = ', '.join(cities_with_max_relevant_cond_hours)
                 print(f'{cities} наиболее благоприятны для поездки.')
             else:
@@ -174,3 +181,4 @@ class DataAnalyzingTask:
             print(f'{city_name} наиболее благоприятен для поездки.')
 
         logger.info('Вывод финального результата.')
+        logger.info('============================')
