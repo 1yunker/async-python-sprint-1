@@ -137,7 +137,7 @@ class DataAnalyzingTask:
     """
     Финальный анализ агрегированных данных и получение результата.
     """
-
+    @staticmethod
     def make_result_from(file_with_path: str) -> None:
 
         with open(file_with_path, 'r') as file:
